@@ -1,32 +1,101 @@
 The Ember Data store provides a simple interface for finding records of a single
-type through the `store` object's `find` method. Internally, the `store`
-uses `find`, `findAll`, and `findQuery` based on the supplied arguments.
+type through the `store` object's `find` method.
 
 The first argument to `store.find()` is always the record type. The optional second
 argument determines if a request is made for all records, a single record, or a query.
 
-### Finding All Records of a Type
+## Finding All Records of a Type
+To find all records for a type, call find with only the record type parameter:
 
 ```javascript
-var posts = this.store.find('post'); // => GET /posts
+App.PostRoute = Ember.Route.extend({
+  model: function() {
+    return this.store.find('post');
+  }
+});
 ```
 
-To get a list of records already loaded into the store, without making
-another network request, use `all` instead.
-
-```javascript
-var posts = this.store.all('post'); // => no network request
-```
-
-`find` returns a `DS.PromiseArray` that fulfills to a `DS.RecordArray` and `all`
-directly returns a `DS.RecordArray`.
+`find` returns a `DS.PromiseArray` that fulfills to a `DS.RecordArray`
+containing all the records returned by the adapter.
 
 It's important to note that `DS.RecordArray` is not a JavaScript array.
 It is an object that implements [`Ember.Enumerable`][1]. This is important
-because, for example, if you want to retrieve records by index, the `[]` notation
+because, if you want to retrieve records by index, the `[]` notation
 will not work--you'll have to use `objectAt(index)` instead.
 
 [1]: /api/classes/Ember.Enumerable.html
+
+#### Server Response to a FindAll request
+
+When using the default `RESTAdapter` and `RESTSerializer` Ember Data
+will perform the following steps to attempt to request the `post` data
+from your server.
+
+First the `RESTAdapter` will attempt to build the URL it will use to
+request the `post` data. It does this by pluralizing and camelCasing
+the record type name. For the above example, `post` would become the
+url `/posts`. The `RESTAdapter` will then make a `GET` XHR (or ajax)
+request to the `/posts` url.
+
+Once the `GET /posts` requests is fufilled the adapter will return the
+data from the response to Ember Data's store. The store will use the
+`RESTSerializer` to extract the data and normalize it into a form the
+store can understand.
+
+Given the following model definitions:
+
+```js
+App.Post = DS.Model.extend({
+  title: DS.attr('string'),
+  comments: DS.hasMany('comment')
+});
+
+App.Comment = DS.Model.extend({
+  body: DS.attr('string'),
+  post: DS.belongsTo('post')
+});
+```
+
+The `RESTSerializer` would expect the response from your server to
+look like the following json:
+
+```json
+{
+  "post": [{
+    "id": 1,
+    "title": "Rails is omakase",
+    "comments": [1, 2]
+  }],
+  "comments": [{
+    "id": 1,
+    "body": "FIRST",
+    "post": 1,
+  }, {
+    "id": 2,
+    "body": "Rails is unagi",
+    "post": 1
+  }]
+}
+```
+
+One thing you may notice is this response contains the data for three
+records instead of only the `post` record that was originally
+requested. This is a pattern called "sideloading". Sideloading allows
+your application to reduce the number of HTTP requestes necessary to
+load data by also including related records in the response. In the
+above example we can see the post response is nested under the `post`
+key and related comment records are nested under the `comments` key.
+
+On the individual records in your payload, the `RESTSerializer` expects
+every record to have a unique (per type) identifyer under the `id`
+property. It also expects all of the attributes and relationship to
+use the same property names in the payload as the property names on
+the model.
+
+
+
+#### Customizing the Adapter and Server FindAll request
+asdf
 
 ### Finding a Single Record
 
@@ -49,39 +118,4 @@ For example, we could search for all `person` models who have the name of
 
 ```javascript
 var peters = this.store.find('person', { name: "Peter" }); // => GET to /persons?name=Peter
-```
-
-### Integrating with the Route's Model Hook
-
-As discussed in [Specifying a Route's Model][3], routes are
-responsible for telling their template which model to render.
-
-[3]: /guides/routing/specifying-a-routes-model
-
-`Ember.Route`'s `model` hook supports asynchronous values
-out-of-the-box. If you return a promise from the `model` hook, the
-router will wait until the promise has fulfilled to render the
-template.
-
-This makes it easy to write apps with asynchronous data using Ember
-Data. Just return the requested record from the `model` hook, and let
-Ember deal with figuring out whether a network request is needed or not.
-
-```javascript
-App.Router.map(function() {
-  this.resource('posts');
-  this.resource('post', { path: ':post_id' });
-});
-
-App.PostsRoute = Ember.Route.extend({
-  model: function() {
-    return this.store.find('post');
-  }
-});
-
-App.PostRoute = Ember.Route.extend({
-  model: function(params) {
-    return this.store.find('post', params.post_id);
-  }
-})
 ```
