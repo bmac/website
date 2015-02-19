@@ -80,12 +80,20 @@ App.Person = DS.Model.extend({
 });
 ```
 
-For more about adding computed properties to your classes, see [Computed
-Properties](/guides/object-model/computed-properties).
+For more about adding computed properties to your classes, see
+[Computed Properties](/guides/object-model/computed-properties).
 
-If you don't specify the type of the attribute, it will be whatever was
-provided by the server. You can make sure that an attribute is always
-coerced into a particular type by passing a `type` to `attr`:
+Every Model in Ember Data has a special `id` attribute. You do not
+need to manually define this property. This is how Ember Data will be
+able to uniquely identify records when communicating with you
+backend. The `id` attribute can be set for new records however once a
+record has been saved Ember Data will not allow you to update the
+value of the `id` attribute.
+
+If you don't specify the type of the attribute, it will be whatever
+was provided by the server. You can make sure that an attribute is
+always coerced into a particular type by passing a `type` argument to
+the `attr` function:
 
 ```js
 App.Person = DS.Model.extend({
